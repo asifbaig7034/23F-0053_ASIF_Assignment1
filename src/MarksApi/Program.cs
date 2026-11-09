@@ -1,12 +1,14 @@
-using System.Text;
+﻿using System.Text;
 using MarksApi.Configuration;
 using MarksApi.Data;
 using MarksApi.Data.Entities;
 using MarksApi.Endpoints;
 using MarksApi.Infrastructure;
 using MarksApi.Services.Auth;
+using MarksApi.Services.Students;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -29,6 +31,7 @@ builder.Services.AddHealthChecks()
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IDataSeeder, DataSeeder>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IStudentService, StudentService>();
 
 builder.Services.AddOptions<JwtOptions>()
     .BindConfiguration("Jwt")
@@ -146,5 +149,6 @@ app.MapGet("/", () => "Hello World!").AllowAnonymous();
 
 app.MapHealthEndpoints();
 app.MapAuthEndpoints();
+app.MapStudentEndpoints();
 
 app.Run();
