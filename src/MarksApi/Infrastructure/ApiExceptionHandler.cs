@@ -21,6 +21,12 @@ public sealed class ApiExceptionHandler(
                 or "ux_students_email"
         };
 
+        var duplicateCourse = postgres is
+        {
+            SqlState: "23505",
+            ConstraintName: "ux_courses_code"
+        };
+
         var studentInUse =
             HttpMethods.IsDelete(context.Request.Method) &&
             context.Request.Path.StartsWithSegments("/api/students") &&
@@ -31,7 +37,20 @@ public sealed class ApiExceptionHandler(
                     or "fk_users_students_student_id"
             };
 
-        var statusCode = duplicateStudent || studentInUse
+        var courseInUse =
+            HttpMethods.IsDelete(context.Request.Method) &&
+            context.Request.Path.StartsWithSegments("/api/courses") &&
+            postgres is
+            {
+                SqlState: "23503",
+                ConstraintName: "fk_enrollments_courses_course_id"
+            };
+
+        var conflict =
+            duplicateStudent || duplicateCourse ||
+            studentInUse || courseInUse;
+
+        var statusCode = conflict
             ? StatusCodes.Status409Conflict
             : exception is BadHttpRequestException badRequest
                 ? badRequest.StatusCode
@@ -45,15 +64,19 @@ public sealed class ApiExceptionHandler(
                 context.Request.Method,
                 context.Request.Path);
         }
+        else if (conflict)
+        {
+            logger.LogWarning(
+                "Request rejected with status {StatusCode}: {Method} {Path}.",
+                statusCode,
+                context.Request.Method,
+                context.Request.Path);
+        }
 
         IResult result;
 
         if (duplicateStudent)
         {
-            logger.LogWarning(
-                "Duplicate student rejected at {Path}.",
-                context.Request.Path);
-
             result = Results.Problem(
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Duplicate student",
@@ -61,17 +84,30 @@ public sealed class ApiExceptionHandler(
                     "A student with this registration number or email already exists.",
                 instance: context.Request.Path.Value);
         }
+        else if (duplicateCourse)
+        {
+            result = Results.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Duplicate course",
+                detail: "A course with this code already exists.",
+                instance: context.Request.Path.Value);
+        }
         else if (studentInUse)
         {
-            logger.LogWarning(
-                "Student deletion blocked at {Path}.",
-                context.Request.Path);
-
             result = Results.Problem(
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Student in use",
                 detail:
                     "Student cannot be deleted while enrollments or a linked user account exist.",
+                instance: context.Request.Path.Value);
+        }
+        else if (courseInUse)
+        {
+            result = Results.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Course in use",
+                detail:
+                    "Course cannot be deleted while enrollments exist.",
                 instance: context.Request.Path.Value);
         }
         else if (statusCode == StatusCodes.Status400BadRequest)
