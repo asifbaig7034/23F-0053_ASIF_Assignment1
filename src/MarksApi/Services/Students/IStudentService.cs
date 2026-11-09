@@ -1,3 +1,4 @@
+﻿using System.Security.Claims;
 using MarksApi.Dtos;
 
 namespace MarksApi.Services.Students;
@@ -10,4 +11,17 @@ public interface IStudentService
         string? search,
         string sort,
         CancellationToken cancellationToken = default);
+
+    Task<StudentLookupResult> GetByIdAsync(
+        int id,
+        ClaimsPrincipal caller,
+        CancellationToken cancellationToken = default);
+
+    Task<StudentResponseDto> CreateAsync(
+        StudentWriteRequestDto request,
+        CancellationToken cancellationToken = default);
 }
+
+public sealed record StudentLookupResult(
+    StudentResponseDto? Student,
+    bool IsForbidden);

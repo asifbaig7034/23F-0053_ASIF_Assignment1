@@ -1,3 +1,5 @@
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using MarksApi.Dtos;
 using MarksApi.Services.Students;
 
@@ -19,6 +21,23 @@ public static class StudentEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        group.MapGet("/{id:int}", GetByIdAsync)
+            .RequireAuthorization("TeacherOrStudent")
+            .WithName("GetStudentById")
+            .Produces<StudentResponseDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("", CreateAsync)
+            .RequireAuthorization("TeacherOnly")
+            .WithName("CreateStudent")
+            .Produces<StudentResponseDto>(StatusCodes.Status201Created)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         return app;
     }
@@ -90,5 +109,85 @@ public static class StudentEndpoints
             cancellationToken);
 
         return Results.Ok(result);
+    }
+
+    private static async Task<IResult> GetByIdAsync(
+        int id,
+        IStudentService studentService,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var result = await studentService.GetByIdAsync(
+            id, context.User, cancellationToken);
+
+        if (result.IsForbidden)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Forbidden",
+                detail: "You may only read your own student record.",
+                instance: context.Request.Path.Value);
+        }
+
+        if (result.Student is null)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Student not found",
+                detail: "The requested student was not found.",
+                instance: context.Request.Path.Value);
+        }
+
+        return Results.Ok(result.Student);
+    }
+
+    private static async Task<IResult> CreateAsync(
+        StudentWriteRequestDto request,
+        IStudentService studentService,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var errors = GetValidationErrors(request);
+
+        if (errors.Count > 0)
+        {
+            return Results.ValidationProblem(
+                errors,
+                detail: "Correct the indicated fields and try again.",
+                instance: context.Request.Path.Value);
+        }
+
+        var student = await studentService.CreateAsync(
+            request, cancellationToken);
+
+        return Results.Created(
+            $"/api/students/{student.Id}", student);
+    }
+
+    private static Dictionary<string, string[]> GetValidationErrors(
+        object request)
+    {
+        var results = new List<ValidationResult>();
+
+        Validator.TryValidateObject(
+            request,
+            new ValidationContext(request),
+            results,
+            validateAllProperties: true);
+
+        return results
+            .SelectMany(result => result.MemberNames
+                .DefaultIfEmpty("request")
+                .Select(member => new
+                {
+                    Key = JsonNamingPolicy.CamelCase.ConvertName(member),
+                    Message = result.ErrorMessage ?? "Invalid value."
+                }))
+            .GroupBy(error => error.Key)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(error => error.Message)
+                    .Distinct()
+                    .ToArray());
     }
 }

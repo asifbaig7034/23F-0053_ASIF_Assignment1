@@ -1,5 +1,7 @@
-using Microsoft.AspNetCore.Diagnostics;
+﻿using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace MarksApi.Infrastructure;
 
@@ -11,9 +13,21 @@ public sealed class ApiExceptionHandler(
         Exception exception,
         CancellationToken cancellationToken)
     {
-        var statusCode = exception is BadHttpRequestException badRequest
-            ? badRequest.StatusCode
-            : StatusCodes.Status500InternalServerError;
+        var duplicateStudent = exception is DbUpdateException
+        {
+            InnerException: PostgresException
+            {
+                SqlState: "23505",
+                ConstraintName: "ux_students_registration_no"
+                    or "ux_students_email"
+            }
+        };
+
+        var statusCode = duplicateStudent
+            ? StatusCodes.Status409Conflict
+            : exception is BadHttpRequestException badRequest
+                ? badRequest.StatusCode
+                : StatusCodes.Status500InternalServerError;
 
         if (statusCode >= 500)
         {
@@ -26,7 +40,20 @@ public sealed class ApiExceptionHandler(
 
         IResult result;
 
-        if (statusCode == StatusCodes.Status400BadRequest)
+        if (duplicateStudent)
+        {
+            logger.LogWarning(
+                "Duplicate student rejected at {Path}.",
+                context.Request.Path);
+
+            result = Results.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Duplicate student",
+                detail:
+                    "A student with this registration number or email already exists.",
+                instance: context.Request.Path.Value);
+        }
+        else if (statusCode == StatusCodes.Status400BadRequest)
         {
             result = Results.ValidationProblem(
                 new Dictionary<string, string[]>
