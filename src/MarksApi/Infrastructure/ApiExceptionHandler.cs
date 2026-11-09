@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
 namespace MarksApi.Infrastructure;
@@ -13,17 +12,26 @@ public sealed class ApiExceptionHandler(
         Exception exception,
         CancellationToken cancellationToken)
     {
-        var duplicateStudent = exception is DbUpdateException
+        var postgres = exception.GetBaseException() as PostgresException;
+
+        var duplicateStudent = postgres is
         {
-            InnerException: PostgresException
-            {
-                SqlState: "23505",
-                ConstraintName: "ux_students_registration_no"
-                    or "ux_students_email"
-            }
+            SqlState: "23505",
+            ConstraintName: "ux_students_registration_no"
+                or "ux_students_email"
         };
 
-        var statusCode = duplicateStudent
+        var studentInUse =
+            HttpMethods.IsDelete(context.Request.Method) &&
+            context.Request.Path.StartsWithSegments("/api/students") &&
+            postgres is
+            {
+                SqlState: "23503",
+                ConstraintName: "fk_enrollments_students_student_id"
+                    or "fk_users_students_student_id"
+            };
+
+        var statusCode = duplicateStudent || studentInUse
             ? StatusCodes.Status409Conflict
             : exception is BadHttpRequestException badRequest
                 ? badRequest.StatusCode
@@ -51,6 +59,19 @@ public sealed class ApiExceptionHandler(
                 title: "Duplicate student",
                 detail:
                     "A student with this registration number or email already exists.",
+                instance: context.Request.Path.Value);
+        }
+        else if (studentInUse)
+        {
+            logger.LogWarning(
+                "Student deletion blocked at {Path}.",
+                context.Request.Path);
+
+            result = Results.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Student in use",
+                detail:
+                    "Student cannot be deleted while enrollments or a linked user account exist.",
                 instance: context.Request.Path.Value);
         }
         else if (statusCode == StatusCodes.Status400BadRequest)

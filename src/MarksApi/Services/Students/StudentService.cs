@@ -140,4 +140,51 @@ public sealed class StudentService(
             student.FullName,
             student.Email);
     }
+
+    public async Task<StudentResponseDto?> UpdateAsync(
+        int id,
+        StudentWriteRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var registrationNo = request.RegistrationNo.Trim();
+        var fullName = request.FullName.Trim();
+        var email = request.Email.Trim().ToLowerInvariant();
+
+        var affectedRows = await db.Students
+            .Where(s => s.Id == id)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(s => s.RegistrationNo, registrationNo)
+                    .SetProperty(s => s.FullName, fullName)
+                    .SetProperty(s => s.Email, email),
+                cancellationToken);
+
+        if (affectedRows == 0)
+        {
+            return null;
+        }
+
+        logger.LogInformation("Updated student {StudentId}.", id);
+
+        return new StudentResponseDto(
+            id, registrationNo, fullName, email);
+    }
+
+    public async Task<bool> DeleteAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var affectedRows = await db.Students
+            .Where(s => s.Id == id)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        if (affectedRows == 0)
+        {
+            return false;
+        }
+
+        logger.LogInformation("Deleted student {StudentId}.", id);
+
+        return true;
+    }
 }

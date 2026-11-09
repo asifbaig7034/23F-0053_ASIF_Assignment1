@@ -39,6 +39,25 @@ public static class StudentEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
+        group.MapPut("/{id:int}", UpdateAsync)
+            .RequireAuthorization("TeacherOnly")
+            .WithName("UpdateStudent")
+            .Produces<StudentResponseDto>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapDelete("/{id:int}", DeleteAsync)
+            .RequireAuthorization("TeacherOnly")
+            .WithName("DeleteStudent")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
         return app;
     }
 
@@ -131,11 +150,7 @@ public static class StudentEndpoints
 
         if (result.Student is null)
         {
-            return Results.Problem(
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Student not found",
-                detail: "The requested student was not found.",
-                instance: context.Request.Path.Value);
+            return StudentNotFound(context);
         }
 
         return Results.Ok(result.Student);
@@ -151,10 +166,7 @@ public static class StudentEndpoints
 
         if (errors.Count > 0)
         {
-            return Results.ValidationProblem(
-                errors,
-                detail: "Correct the indicated fields and try again.",
-                instance: context.Request.Path.Value);
+            return InvalidStudent(errors, context);
         }
 
         var student = await studentService.CreateAsync(
@@ -162,6 +174,67 @@ public static class StudentEndpoints
 
         return Results.Created(
             $"/api/students/{student.Id}", student);
+    }
+
+    private static async Task<IResult> UpdateAsync(
+        int id,
+        StudentWriteRequestDto request,
+        IStudentService studentService,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var errors = GetValidationErrors(request);
+
+        if (errors.Count > 0)
+        {
+            return InvalidStudent(errors, context);
+        }
+
+        var student = await studentService.UpdateAsync(
+            id, request, cancellationToken);
+
+        if (student is null)
+        {
+            return StudentNotFound(context);
+        }
+
+        return Results.Ok(student);
+    }
+
+    private static async Task<IResult> DeleteAsync(
+        int id,
+        IStudentService studentService,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var deleted = await studentService.DeleteAsync(
+            id, cancellationToken);
+
+        if (!deleted)
+        {
+            return StudentNotFound(context);
+        }
+
+        return Results.NoContent();
+    }
+
+    private static IResult StudentNotFound(HttpContext context)
+    {
+        return Results.Problem(
+            statusCode: StatusCodes.Status404NotFound,
+            title: "Student not found",
+            detail: "The requested student was not found.",
+            instance: context.Request.Path.Value);
+    }
+
+    private static IResult InvalidStudent(
+        Dictionary<string, string[]> errors,
+        HttpContext context)
+    {
+        return Results.ValidationProblem(
+            errors,
+            detail: "Correct the indicated fields and try again.",
+            instance: context.Request.Path.Value);
     }
 
     private static Dictionary<string, string[]> GetValidationErrors(

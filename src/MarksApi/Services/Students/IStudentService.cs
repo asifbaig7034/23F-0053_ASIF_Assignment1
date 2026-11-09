@@ -20,6 +20,15 @@ public interface IStudentService
     Task<StudentResponseDto> CreateAsync(
         StudentWriteRequestDto request,
         CancellationToken cancellationToken = default);
+
+    Task<StudentResponseDto?> UpdateAsync(
+        int id,
+        StudentWriteRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> DeleteAsync(
+        int id,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record StudentLookupResult(
