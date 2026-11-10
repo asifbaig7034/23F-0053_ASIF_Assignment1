@@ -5,10 +5,10 @@ using MarksApi.Data.Entities;
 using MarksApi.Endpoints;
 using MarksApi.Infrastructure;
 using MarksApi.Services.Auth;
-using MarksApi.Services.Students;
 using MarksApi.Services.Courses;
 using MarksApi.Services.Enrollments;
 using MarksApi.Services.Reports;
+using MarksApi.Services.Students;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Routing;
@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,7 +26,8 @@ var connectionString =
         "ConnectionStrings:Database is missing.");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString)
+    options
+        .UseNpgsql(connectionString)
         .UseSnakeCaseNamingConvention());
 
 builder.Services.AddHealthChecks()
@@ -49,8 +51,8 @@ builder.Services.AddOptions<JwtOptions>()
     .ValidateDataAnnotations()
     .Validate(
         settings =>
-            !string.IsNullOrWhiteSpace(settings.Key) &&
-            Encoding.UTF8.GetByteCount(settings.Key) >= 32,
+            !string.IsNullOrWhiteSpace(settings.Key)
+            && Encoding.UTF8.GetByteCount(settings.Key) >= 32,
         "Jwt:Key must contain at least 32 UTF-8 bytes.")
     .ValidateOnStart();
 
@@ -90,12 +92,52 @@ builder.Services
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("TeacherOnly", policy =>
-        policy.RequireAuthenticatedUser()
+        policy
+            .RequireAuthenticatedUser()
             .RequireRole("Teacher"));
 
     options.AddPolicy("TeacherOrStudent", policy =>
-        policy.RequireAuthenticatedUser()
+        policy
+            .RequireAuthenticatedUser()
             .RequireRole("Teacher", "Student"));
+});
+
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ConfiguredOrigins", policy =>
+    {
+        policy
+            .WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .WithExposedHeaders("Location");
+    });
+});
+
+builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Marks API",
+        Version = "v1",
+        Description = "Student marks management API."
+    });
+
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Enter the JWT returned by the login endpoint."
+    });
+
+    options.OperationFilter<BearerSecurityOperationFilter>();
 });
 
 builder.Services.AddProblemDetails();
@@ -153,10 +195,26 @@ app.UseStatusCodePages(async statusContext =>
         .ExecuteAsync(context);
 });
 
+app.UseHttpsRedirection();
+
+app.UseRouting();
+app.UseCors("ConfiguredOrigins");
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/", () => "Hello World!").AllowAnonymous();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint(
+            "/swagger/v1/swagger.json",
+            "Marks API v1");
+
+        options.DocumentTitle = "Marks API Documentation";
+    });
+}
 
 app.MapHealthEndpoints();
 app.MapAuthEndpoints();
