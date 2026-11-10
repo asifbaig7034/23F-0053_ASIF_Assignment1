@@ -7,6 +7,7 @@ using MarksApi.Infrastructure;
 using MarksApi.Services.Auth;
 using MarksApi.Services.Students;
 using MarksApi.Services.Courses;
+using MarksApi.Services.Enrollments;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Routing;
@@ -34,6 +35,7 @@ builder.Services.AddScoped<IDataSeeder, DataSeeder>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
+builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 
 builder.Services.AddOptions<JwtOptions>()
     .BindConfiguration("Jwt")
@@ -153,5 +155,6 @@ app.MapHealthEndpoints();
 app.MapAuthEndpoints();
 app.MapStudentEndpoints();
 app.MapCourseEndpoints();
+app.MapEnrollmentEndpoints();
 
 app.Run();
