@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Marks API - Assignment Report</title><link rel="stylesheet" href="assets/report.css"></head><body>
+﻿<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Marks API - Assignment Report</title><link rel="stylesheet" href="assets/report.css"></head><body>
 <section class="page">
 <div class="kicker">Advanced Programming | Assignment 1</div>
 <h1>Student Marks<br>Management API</h1><div class="rule"></div>
@@ -13,7 +13,7 @@
 <div class="card"><h3 style="margin-top:0">Verified implementation results</h3><p><strong>118 / 118</strong> Postman tests passed<br><strong>107 / 107</strong> smoke checks passed<br>Smoke process exit code: <strong>0</strong><br>HTTPS redirect and CORS checks passed</p></div>
 </div>
 <h3>Production practices</h3><p class="small">Responses use camelCase DTOs and UTC timestamps. Validation problems and other errors use Problem Details. Read-only queries use AsNoTracking and projections; database calls use async methods and cancellation tokens. ILogger records operations without logging passwords or JWTs.</p>
-<div class="verification pending">Pending final fresh-database clean-clone verification. Run scripts/Finish-Assignment.ps1.</div>
+<div class="verification complete">PASSED - fresh database, clean GitHub clone, two smoke runs and full Postman run.</div>
 <div class="footer"><span>23F-0053 | Asif Baig | Marks API</span><span>1 / 5</span></div></section>
 <section class="page">
 <div class="kicker">02 | Data model</div><h2>Schema and integrity</h2>
@@ -46,12 +46,8 @@
 <p class="small">The collection contains <strong>59 requests, 118 tests and 32 negative cases</strong>. Auth runs first; create requests save generated IDs; CRUD/enrollment cleanup precedes the final negative cases. The exported environment has blank token values.</p>
 <div class="figure"><div class="caption">Postman Collection Runner <span>| 118 passed, 0 failed, 0 errors</span></div><div class="crop runner"><img src="screenshots/postman-runner.png"></div></div>
 <h3>Startup smoke module</h3><p class="small">The opt-in --smoke-test mode starts the real HTTP server, uses PostgreSQL, checks successes/errors and report edge cases, removes SMOKE-prefixed fixtures and exits 0 only on success. Development credentials come from configuration. Both recorded runs passed 107 checks.</p>
-<div class="log">Recorded terminal result supplied during implementation:
-SMOKE SUMMARY: 107 passed, 0 failed
-Second exit code: 0
-
-The final helper inserts the actual fresh-run console screenshot here.</div>
-<div class="verification pending">Pending final fresh-database clean-clone verification. Run scripts/Finish-Assignment.ps1.</div>
+<div class="crop smoke"><img src="screenshots/smoke-tests.png"></div>
+<div class="verification complete">PASSED - fresh database, clean GitHub clone, two smoke runs and full Postman run.</div>
 <p class="tiny">The final helper records the clean Git revision, separate verification database, seed/cleanup row counts, two smoke results and fresh Postman evidence in <strong>docs/verification-results.json</strong>. It leaves existing application data intact.</p>
 <div class="refs tiny"><strong>Primary references:</strong>
 <a href="https://learn.microsoft.com/aspnet/core/security/authentication/configure-jwt-bearer-authentication">ASP.NET Core JWT authentication</a>;

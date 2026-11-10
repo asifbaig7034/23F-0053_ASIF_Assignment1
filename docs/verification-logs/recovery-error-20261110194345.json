@@ -1,0 +1,34 @@
+﻿{
+    "schemaVersion":  2,
+    "status":  "incomplete",
+    "stage":  "awaiting-postman",
+    "sourceCommit":  "e9b3afe0d393dff372bf7acacfb06c4429b194e0",
+    "freshDatabase":  "marks_verify_20261110190050_51e2",
+    "recoveryRun":  "20261110193440",
+    "databaseCreatedThisRun":  false,
+    "sourceTree":  "7bf6e223668508bb7d3dfc040aca52f5316ad7e6",
+    "verificationCheckout":  "C:\\Users\\pc\\23F-0053_ASIF_Assignment1_verify_20261110190045",
+    "recoverySource":  "Owned verification database and clean checkout with matching committed API tree; build and smoke runs repeated in this recovery.",
+    "buildExitCode":  0,
+    "seedCounts":  "2|3|6|3",
+    "smokeRuns":  [
+                      {
+                          "log":  "recovery-20261110193440-smoke-1.log",
+                          "run":  1,
+                          "exitCode":  0,
+                          "failed":  0,
+                          "passed":  107
+                      },
+                      {
+                          "log":  "recovery-20261110193440-smoke-2.log",
+                          "run":  2,
+                          "exitCode":  0,
+                          "failed":  0,
+                          "passed":  107
+                      }
+                  ],
+    "afterSmokeRowCounts":  "2|3|6|3",
+    "smokeSequenceAdvanced":  true,
+    "postmanSequenceBefore":  14,
+    "failureType":  "RuntimeException"
+}
