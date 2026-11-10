@@ -176,7 +176,7 @@ public static class MarksFinishCapture {
     $createUser = $marksDbUser
     $maintenanceDb = $marksDbName
     if ($canCreate -ne "1") {
-        $createUser = Read-Host "PostgreSQL administrator username (Enter for postgres)"
+        $createUser = "postgres"
         if ([string]::IsNullOrWhiteSpace($createUser)) { $createUser = "postgres" }
         $adminPassword = Read-Host "PostgreSQL administrator database password" -AsSecureString
         try {
@@ -310,3 +310,4 @@ finally {
     if ($marksConnection) { $marksConnection.Clear() }
     $connectionText=$null; $dbPassword=$null; $passLines=$null; $lines=$null
 }
+
