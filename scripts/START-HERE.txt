@@ -1,0 +1,34 @@
+MARKS API - FINAL HANDOVER
+
+This pack completes the existing 23F-0053_ASIF_Assignment1 repository.
+Extract its contents into that repository, merging the folders.
+It contains the README, actual schema export, ER diagram, Postman files,
+five-page report, genuine existing screenshots and final verification helpers.
+
+1. Stop any running API terminal with Ctrl+C.
+2. From the repository root, run:
+
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Finish-Assignment.ps1
+
+3. The helper pushes the prepared source, clones it and verifies a separate,
+   newly migrated database. It may ask for the PostgreSQL administrator
+   password. This is the database administrator password, not the Teacher
+   API password. Existing database data and user-secrets are retained.
+4. When prompted, press Enter in the smoke-test console to save its screenshot.
+5. When prompted, use Postman to rerun the complete corrected Marks API
+   collection with Local selected. The helper starts the API for you.
+   Expected: 118 passed, 0 failed, 0 errors. Keep the results visible.
+   Return to PowerShell and enter 118 only after that run passes.
+6. Wait for FINAL READY. The helper saves genuine screenshots, records the
+   check results, regenerates docs/report.pdf, commits and pushes it, and
+   opens the PDF.
+7. Review the PDF, give the instructor access to the private repository,
+   and submit docs/report.pdf through the assignment's submission channel.
+
+The report currently marks the fresh-database clean-clone check as pending.
+It becomes final after the helper completes on your PC. The Windows helper
+has been reviewed, but cannot be executed in this Linux preparation workspace.
+
+If STOPPED appears, do not submit an incomplete verification as passed.
+Send that message for help. A failed check leaves the original data intact.
+Viva preparation: docs/viva-notes.md.

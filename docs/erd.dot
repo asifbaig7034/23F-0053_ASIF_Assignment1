@@ -1,0 +1,43 @@
+digraph ERD {
+  graph [rankdir=TB, bgcolor="white", pad="0.22", nodesep="0.7", ranksep="0.85", splines=polyline, fontname="Arial"];
+  node [shape=plain, fontname="Arial"];
+  edge [fontname="Arial", fontsize=11, color="#52667d", penwidth=1.5, arrowsize=0.7];
+  students [label=<<TABLE BORDER="1" COLOR="#94a3b8" CELLBORDER="0" CELLSPACING="0" CELLPADDING="7">
+    <TR><TD COLSPAN="2" BGCOLOR="#16324f"><FONT COLOR="white"><B>students</B></FONT></TD></TR>
+    <TR><TD PORT="id" ALIGN="LEFT"><B>PK id</B></TD><TD ALIGN="LEFT">integer, identity</TD></TR>
+    <TR><TD ALIGN="LEFT">UK registration_no</TD><TD ALIGN="LEFT">varchar(20), required</TD></TR>
+    <TR><TD ALIGN="LEFT">full_name</TD><TD ALIGN="LEFT">varchar(100), required</TD></TR>
+    <TR><TD ALIGN="LEFT">UK email</TD><TD ALIGN="LEFT">varchar(150), lowercase</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at_utc</TD><TD ALIGN="LEFT">timestamptz, required</TD></TR>
+  </TABLE>>];
+  courses [label=<<TABLE BORDER="1" COLOR="#94a3b8" CELLBORDER="0" CELLSPACING="0" CELLPADDING="7">
+    <TR><TD COLSPAN="2" BGCOLOR="#16324f"><FONT COLOR="white"><B>courses</B></FONT></TD></TR>
+    <TR><TD PORT="id" ALIGN="LEFT"><B>PK id</B></TD><TD ALIGN="LEFT">integer, identity</TD></TR>
+    <TR><TD ALIGN="LEFT">UK code</TD><TD ALIGN="LEFT">varchar(10), required</TD></TR>
+    <TR><TD ALIGN="LEFT">title</TD><TD ALIGN="LEFT">varchar(150), required</TD></TR>
+    <TR><TD ALIGN="LEFT">credit_hours</TD><TD ALIGN="LEFT">integer, 1-4</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at_utc</TD><TD ALIGN="LEFT">timestamptz, required</TD></TR>
+  </TABLE>>];
+  users [label=<<TABLE BORDER="1" COLOR="#94a3b8" CELLBORDER="0" CELLSPACING="0" CELLPADDING="7">
+    <TR><TD COLSPAN="2" BGCOLOR="#0e706e"><FONT COLOR="white"><B>users</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK id</B></TD><TD ALIGN="LEFT">integer, identity</TD></TR>
+    <TR><TD ALIGN="LEFT">UK username</TD><TD ALIGN="LEFT">varchar(50), required</TD></TR>
+    <TR><TD ALIGN="LEFT">password_hash</TD><TD ALIGN="LEFT">text, required</TD></TR>
+    <TR><TD ALIGN="LEFT">role</TD><TD ALIGN="LEFT">Teacher or Student</TD></TR>
+    <TR><TD PORT="student" ALIGN="LEFT">FK student_id</TD><TD ALIGN="LEFT">integer, nullable*</TD></TR>
+  </TABLE>>];
+  enrollments [label=<<TABLE BORDER="1" COLOR="#94a3b8" CELLBORDER="0" CELLSPACING="0" CELLPADDING="7">
+    <TR><TD COLSPAN="2" BGCOLOR="#0e706e"><FONT COLOR="white"><B>enrollments</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK id</B></TD><TD ALIGN="LEFT">integer, identity</TD></TR>
+    <TR><TD PORT="student" ALIGN="LEFT">FK student_id</TD><TD ALIGN="LEFT">integer, required</TD></TR>
+    <TR><TD PORT="course" ALIGN="LEFT">FK course_id</TD><TD ALIGN="LEFT">integer, required</TD></TR>
+    <TR><TD ALIGN="LEFT">mark</TD><TD ALIGN="LEFT">integer, NULL or 0-100</TD></TR>
+    <TR><TD ALIGN="LEFT">enrolled_at_utc</TD><TD ALIGN="LEFT">timestamptz, required</TD></TR>
+    <TR><TD COLSPAN="2" ALIGN="LEFT">UK (student_id, course_id)</TD></TR>
+  </TABLE>>];
+  {rank=same; students; courses;}
+  {rank=same; users; enrollments;}
+  students:id -> users:student [label="student 0..1 / users 0..*", minlen=1];
+  students:id -> enrollments:student [label="1 / 0..*", minlen=1];
+  courses:id -> enrollments:course [label="1 / 0..*", minlen=1];
+}

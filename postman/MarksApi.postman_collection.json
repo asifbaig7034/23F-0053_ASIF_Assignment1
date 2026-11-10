@@ -1,0 +1,3381 @@
+{
+  "info": {
+    "_postman_id": "a6a9f777-0ce4-4a6c-9d20-34e6fe423715",
+    "name": "Marks API",
+    "description": "Student Marks Management API assignment collection.\n\nPrerequisites: run the Development API at https://localhost:7134, apply the EF Core migrations, and seed the documented development accounts and data. Select the Local environment and run the entire collection once in its saved order.\n\nTeacher requests inherit the collection's Bearer {{token}} authentication. Login and health requests use No Auth. Student permission checks explicitly use {{studentToken}}. Login scripts populate both environment tokens automatically.\n\nStudent, course and enrollment create requests generate temporary fixtures and save their IDs in collection variables. CRUD and enrollment cleanup requests delete those fixtures before the final Negative Tests folder. Seed records are retained; report assertions use the documented seed marks and Grading:PassMark=50.\n\nBefore committing or sharing an environment export, clear token and studentToken. Do not change the folder order or omit setup/cleanup requests when running the whole collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login teacher",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set(\"token\", \"\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Teacher login returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"Teacher role, JWT and future UTC expiry are returned\", function () {",
+                  "    pm.expect(body.role).to.equal(\"Teacher\");",
+                  "    pm.expect(body.token).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(body.token.split(\".\")).to.have.lengthOf(3);",
+                  "    pm.expect(body.expiresAtUtc).to.be.a(\"string\").and.match(/Z$/);",
+                  "    pm.expect(Date.parse(body.expiresAtUtc)).to.be.above(Date.now());",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200 && body.role === \"Teacher\" &&",
+                  "    typeof body.token === \"string\" && body.token.length > 0) {",
+                  "    pm.environment.set(\"token\", body.token);",
+                  "} else {",
+                  "    pm.environment.set(\"token\", \"\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"username\": \"teacher1\",\r\n  \"password\": \"TeacherDemo123!\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login student",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set(\"studentToken\", \"\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student login returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"Student role, JWT and future UTC expiry are returned\", function () {",
+                  "    pm.expect(body.role).to.equal(\"Student\");",
+                  "    pm.expect(body.token).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(body.token.split(\".\")).to.have.lengthOf(3);",
+                  "    pm.expect(body.expiresAtUtc).to.be.a(\"string\").and.match(/Z$/);",
+                  "    pm.expect(Date.parse(body.expiresAtUtc)).to.be.above(Date.now());",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200 && body.role === \"Student\" &&",
+                  "    typeof body.token === \"string\" && body.token.length > 0) {",
+                  "    pm.environment.set(\"studentToken\", body.token);",
+                  "} else {",
+                  "    pm.environment.set(\"studentToken\", \"\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"username\": \"student1\",\r\n  \"password\": \"StudentDemo123!\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Students",
+      "item": [
+        {
+          "name": "List students",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Students list returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Paged students response is valid\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.items).to.be.an(\"array\");",
+                  "    pm.expect(body.page).to.equal(1);",
+                  "    pm.expect(body.pageSize).to.equal(10);",
+                  "    pm.expect(body.totalCount).to.be.a(\"number\").and.at.least(0);",
+                  "",
+                  "    pm.expect(body.items.length).to.equal(",
+                  "        Math.min(body.pageSize, body.totalCount)",
+                  "    );",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students?page=1&pageSize=10&sort=id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "id"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create student",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const suffix = pm.variables.replaceIn(\"{{$guid}}\")",
+                  "    .replace(/-/g, \"\")",
+                  "    .slice(0, 12);",
+                  "",
+                  "pm.collectionVariables.set(\"studentRegistrationNo\", \"TEST-\" + suffix);",
+                  "pm.collectionVariables.set(\"studentFullName\", \"Asif Baig\");",
+                  "pm.collectionVariables.set(",
+                  "    \"studentEmail\",",
+                  "    \"STUDENT.\" + suffix + \"@EXAMPLE.COM\"",
+                  ");",
+                  "",
+                  "pm.collectionVariables.unset(\"studentId\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student creation returns 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Student values and Location are correct\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.id).to.be.a(\"number\").and.above(0);",
+                  "",
+                  "    pm.expect(body.registrationNo).to.equal(",
+                  "        pm.collectionVariables.get(\"studentRegistrationNo\")",
+                  "    );",
+                  "",
+                  "    pm.expect(body.fullName).to.equal(",
+                  "        pm.collectionVariables.get(\"studentFullName\")",
+                  "    );",
+                  "",
+                  "    pm.expect(body.email).to.equal(",
+                  "        pm.collectionVariables.get(\"studentEmail\").toLowerCase()",
+                  "    );",
+                  "",
+                  "    pm.expect(pm.response.headers.get(\"Location\"))",
+                  "        .to.equal(\"/api/students/\" + body.id);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    if (typeof body.id === \"number\" && body.id > 0) {",
+                  "        pm.collectionVariables.set(\"studentId\", body.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"registrationNo\": \"{{studentRegistrationNo}}\",\r\n  \"fullName\": \"{{studentFullName}}\",\r\n  \"email\": \"{{studentEmail}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get created student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student lookup returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"The created student is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.id).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"studentId\"))",
+                  "    );",
+                  "",
+                  "    pm.expect(body.registrationNo).to.equal(",
+                  "        pm.collectionVariables.get(\"studentRegistrationNo\")",
+                  "    );",
+                  "",
+                  "    pm.expect(body.fullName).to.equal(",
+                  "        pm.collectionVariables.get(\"studentFullName\")",
+                  "    );",
+                  "",
+                  "    pm.expect(body.email).to.equal(",
+                  "        pm.collectionVariables.get(\"studentEmail\").toLowerCase()",
+                  "    );",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/{{studentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "{{studentId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Student reads own record",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student can read own record\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Own student record is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.id).to.equal(1);",
+                  "    pm.expect(body.registrationNo).to.equal(\"CS-2022-001\");",
+                  "    pm.expect(body.fullName).to.equal(\"Ali Raza\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "1"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student update returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"Updated student values are correct\", function () {",
+                  "    pm.expect(body.id).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"studentId\"))",
+                  "    );",
+                  "",
+                  "    pm.expect(body.registrationNo).to.equal(",
+                  "        pm.collectionVariables.get(\"studentRegistrationNo\")",
+                  "    );",
+                  "",
+                  "    pm.expect(body.fullName).to.equal(\"Asif Baig Updated\");",
+                  "",
+                  "    pm.expect(body.email).to.equal(",
+                  "        pm.collectionVariables.get(\"studentEmail\").toLowerCase()",
+                  "    );",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200 && typeof body.id === \"number\") {",
+                  "    pm.collectionVariables.set(\"studentRegistrationNo\", body.registrationNo);",
+                  "    pm.collectionVariables.set(\"studentFullName\", body.fullName);",
+                  "    pm.collectionVariables.set(\"studentEmail\", body.email);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"registrationNo\": \"{{studentRegistrationNo}}\",\r\n  \"fullName\": \"Asif Baig Updated\",\r\n  \"email\": \"{{studentEmail}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students/{{studentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "{{studentId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student deletion returns 204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "pm.test(\"Delete response has no body\", function () {",
+                  "    pm.expect(pm.response.text()).to.equal(\"\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/{{studentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "{{studentId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Courses",
+      "item": [
+        {
+          "name": "List courses",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Course list returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Paged courses response is valid\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.items).to.be.an(\"array\");",
+                  "    pm.expect(body.page).to.equal(1);",
+                  "    pm.expect(body.pageSize).to.equal(10);",
+                  "    pm.expect(body.totalCount).to.be.a(\"number\").and.at.least(0);",
+                  "",
+                  "    pm.expect(body.items.length).to.equal(",
+                  "        Math.min(body.pageSize, body.totalCount)",
+                  "    );",
+                  "",
+                  "    body.items.forEach(function (course) {",
+                  "        pm.expect(course.code).to.be.a(\"string\").and.not.empty;",
+                  "        pm.expect(course.title).to.be.a(\"string\").and.not.empty;",
+                  "        pm.expect(course.creditHours).to.be.within(1, 4);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses?page=1&pageSize=10&sort=id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "id"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List courses as Student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student can list courses\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Paged courses response is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.items).to.be.an(\"array\");",
+                  "    pm.expect(body.page).to.equal(1);",
+                  "    pm.expect(body.pageSize).to.equal(10);",
+                  "    pm.expect(body.totalCount).to.be.a(\"number\").and.at.least(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses?page=1&pageSize=10&sort=id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "id"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create course",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const suffix = pm.variables.replaceIn(\"{{$guid}}\")",
+                  "    .replace(/-/g, \"\")",
+                  "    .slice(0, 8);",
+                  "",
+                  "pm.collectionVariables.set(\"courseCode\", \"t-\" + suffix);",
+                  "pm.collectionVariables.set(\"courseTitle\", \"Test Course\");",
+                  "pm.collectionVariables.set(\"courseCreditHours\", 3);",
+                  "",
+                  "pm.collectionVariables.unset(\"courseId\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Course creation returns 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"Course values and Location are correct\", function () {",
+                  "    pm.expect(body.id).to.be.a(\"number\").and.above(0);",
+                  "",
+                  "    pm.expect(body.code).to.equal(",
+                  "        pm.collectionVariables.get(\"courseCode\").toUpperCase()",
+                  "    );",
+                  "",
+                  "    pm.expect(body.title).to.equal(",
+                  "        pm.collectionVariables.get(\"courseTitle\")",
+                  "    );",
+                  "",
+                  "    pm.expect(body.creditHours).to.equal(3);",
+                  "",
+                  "    pm.expect(pm.response.headers.get(\"Location\"))",
+                  "        .to.equal(\"/api/courses/\" + body.id);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201 && typeof body.id === \"number\") {",
+                  "    pm.collectionVariables.set(\"courseId\", body.id);",
+                  "    pm.collectionVariables.set(\"courseCode\", body.code);",
+                  "    pm.collectionVariables.set(\"courseTitle\", body.title);",
+                  "    pm.collectionVariables.set(\"courseCreditHours\", body.creditHours);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"code\": \"{{courseCode}}\",\r\n  \"title\": \"{{courseTitle}}\",\r\n  \"creditHours\": 3\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/courses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get created course",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Course lookup returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"The created course is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.id).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"courseId\"))",
+                  "    );",
+                  "",
+                  "    pm.expect(body.code).to.equal(",
+                  "        pm.collectionVariables.get(\"courseCode\")",
+                  "    );",
+                  "",
+                  "    pm.expect(body.title).to.equal(",
+                  "        pm.collectionVariables.get(\"courseTitle\")",
+                  "    );",
+                  "",
+                  "    pm.expect(body.creditHours).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"courseCreditHours\"))",
+                  "    );",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/{{courseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "{{courseId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update course",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Course update returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"Updated course values are correct\", function () {",
+                  "    pm.expect(body.id).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"courseId\"))",
+                  "    );",
+                  "",
+                  "    pm.expect(body.code).to.equal(",
+                  "        pm.collectionVariables.get(\"courseCode\")",
+                  "    );",
+                  "",
+                  "    pm.expect(body.title).to.equal(\"Updated Test Course\");",
+                  "    pm.expect(body.creditHours).to.equal(4);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200 && typeof body.id === \"number\") {",
+                  "    pm.collectionVariables.set(\"courseCode\", body.code);",
+                  "    pm.collectionVariables.set(\"courseTitle\", body.title);",
+                  "    pm.collectionVariables.set(\"courseCreditHours\", body.creditHours);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"code\": \"{{courseCode}}\",\r\n  \"title\": \"Updated Test Course\",\r\n  \"creditHours\": 4\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/{{courseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "{{courseId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete course",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Course deletion returns 204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "pm.test(\"Delete response has no body\", function () {",
+                  "    pm.expect(pm.response.text()).to.equal(\"\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/{{courseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "{{courseId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Enrollments and Marks",
+      "item": [
+        {
+          "name": "Setup enrollment student",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const suffix = pm.variables.replaceIn(\"{{$guid}}\")",
+                  "    .replace(/-/g, \"\")",
+                  "    .slice(0, 12);",
+                  "",
+                  "pm.collectionVariables.set(\"studentRegistrationNo\", \"TEST-\" + suffix);",
+                  "pm.collectionVariables.set(\"studentFullName\", \"Asif Baig\");",
+                  "pm.collectionVariables.set(",
+                  "    \"studentEmail\",",
+                  "    \"STUDENT.\" + suffix + \"@EXAMPLE.COM\"",
+                  ");",
+                  "",
+                  "pm.collectionVariables.unset(\"studentId\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student creation returns 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Student values and Location are correct\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.id).to.be.a(\"number\").and.above(0);",
+                  "",
+                  "    pm.expect(body.registrationNo).to.equal(",
+                  "        pm.collectionVariables.get(\"studentRegistrationNo\")",
+                  "    );",
+                  "",
+                  "    pm.expect(body.fullName).to.equal(",
+                  "        pm.collectionVariables.get(\"studentFullName\")",
+                  "    );",
+                  "",
+                  "    pm.expect(body.email).to.equal(",
+                  "        pm.collectionVariables.get(\"studentEmail\").toLowerCase()",
+                  "    );",
+                  "",
+                  "    pm.expect(pm.response.headers.get(\"Location\"))",
+                  "        .to.equal(\"/api/students/\" + body.id);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    if (typeof body.id === \"number\" && body.id > 0) {",
+                  "        pm.collectionVariables.set(\"studentId\", body.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"registrationNo\": \"{{studentRegistrationNo}}\",\r\n  \"fullName\": \"{{studentFullName}}\",\r\n  \"email\": \"{{studentEmail}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Setup enrollment course",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const suffix = pm.variables.replaceIn(\"{{$guid}}\")",
+                  "    .replace(/-/g, \"\")",
+                  "    .slice(0, 8);",
+                  "",
+                  "pm.collectionVariables.set(\"courseCode\", \"t-\" + suffix);",
+                  "pm.collectionVariables.set(\"courseTitle\", \"Test Course\");",
+                  "pm.collectionVariables.set(\"courseCreditHours\", 3);",
+                  "",
+                  "pm.collectionVariables.unset(\"courseId\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Course creation returns 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"Course values and Location are correct\", function () {",
+                  "    pm.expect(body.id).to.be.a(\"number\").and.above(0);",
+                  "",
+                  "    pm.expect(body.code).to.equal(",
+                  "        pm.collectionVariables.get(\"courseCode\").toUpperCase()",
+                  "    );",
+                  "",
+                  "    pm.expect(body.title).to.equal(",
+                  "        pm.collectionVariables.get(\"courseTitle\")",
+                  "    );",
+                  "",
+                  "    pm.expect(body.creditHours).to.equal(3);",
+                  "",
+                  "    pm.expect(pm.response.headers.get(\"Location\"))",
+                  "        .to.equal(\"/api/courses/\" + body.id);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201 && typeof body.id === \"number\") {",
+                  "    pm.collectionVariables.set(\"courseId\", body.id);",
+                  "    pm.collectionVariables.set(\"courseCode\", body.code);",
+                  "    pm.collectionVariables.set(\"courseTitle\", body.title);",
+                  "    pm.collectionVariables.set(\"courseCreditHours\", body.creditHours);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"code\": \"{{courseCode}}\",\r\n  \"title\": \"{{courseTitle}}\",\r\n  \"creditHours\": 3\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/courses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create enrollment",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.unset(\"enrollmentId\");",
+                  "pm.collectionVariables.unset(\"enrollmentMark\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Enrollment creation returns 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"Enrollment links the correct student and course\", function () {",
+                  "    pm.expect(body.id).to.be.a(\"number\").and.above(0);",
+                  "",
+                  "    pm.expect(body.studentId).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"studentId\"))",
+                  "    );",
+                  "",
+                  "    pm.expect(body.courseId).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"courseId\"))",
+                  "    );",
+                  "",
+                  "    pm.expect(body.mark).to.equal(null);",
+                  "    pm.expect(body.enrolledAtUtc).to.be.a(\"string\").and.match(/Z$/);",
+                  "",
+                  "    pm.expect(pm.response.headers.get(\"Location\"))",
+                  "        .to.equal(\"/api/enrollments/\" + body.id);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201 && typeof body.id === \"number\") {",
+                  "    pm.collectionVariables.set(\"enrollmentId\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"studentId\": {{studentId}}\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/{{courseId}}/enrollments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "{{courseId}}",
+                "enrollments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List course enrollments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Enrollment list returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"The created enrollment appears in the list\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.page).to.equal(1);",
+                  "    pm.expect(body.pageSize).to.equal(10);",
+                  "    pm.expect(body.totalCount).to.equal(1);",
+                  "    pm.expect(body.items).to.be.an(\"array\").with.lengthOf(1);",
+                  "",
+                  "    pm.expect(body.items[0].id).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"enrollmentId\"))",
+                  "    );",
+                  "",
+                  "    pm.expect(body.items[0].studentId).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"studentId\"))",
+                  "    );",
+                  "",
+                  "    pm.expect(body.items[0].courseId).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"courseId\"))",
+                  "    );",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/{{courseId}}/enrollments?page=1&pageSize=10&sort=id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "{{courseId}}",
+                "enrollments"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "id"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update enrollment mark",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Mark update returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"The correct enrollment has mark 85\", function () {",
+                  "    pm.expect(body.id).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"enrollmentId\"))",
+                  "    );",
+                  "",
+                  "    pm.expect(body.studentId).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"studentId\"))",
+                  "    );",
+                  "",
+                  "    pm.expect(body.courseId).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"courseId\"))",
+                  "    );",
+                  "",
+                  "    pm.expect(body.mark).to.equal(85);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200 && typeof body.mark === \"number\") {",
+                  "    pm.collectionVariables.set(\"enrollmentMark\", body.mark);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"mark\": 85\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enrollments/{{enrollmentId}}/mark",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enrollments",
+                "{{enrollmentId}}",
+                "mark"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get enrollment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Enrollment lookup returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Saved enrollment and mark are returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.id).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"enrollmentId\"))",
+                  "    );",
+                  "",
+                  "    pm.expect(body.studentId).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"studentId\"))",
+                  "    );",
+                  "",
+                  "    pm.expect(body.courseId).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"courseId\"))",
+                  "    );",
+                  "",
+                  "    pm.expect(body.mark).to.equal(",
+                  "        Number(pm.collectionVariables.get(\"enrollmentMark\"))",
+                  "    );",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/enrollments/{{enrollmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enrollments",
+                "{{enrollmentId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete enrollment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Deletion returns 204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "pm.test(\"Response body is empty\", function () {",
+                  "    pm.expect(pm.response.text()).to.equal(\"\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/enrollments/{{enrollmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enrollments",
+                "{{enrollmentId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cleanup enrollment student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Deletion returns 204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "pm.test(\"Response body is empty\", function () {",
+                  "    pm.expect(pm.response.text()).to.equal(\"\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/{{studentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "{{studentId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cleanup enrollment course",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Deletion returns 204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "pm.test(\"Response body is empty\", function () {",
+                  "    pm.expect(pm.response.text()).to.equal(\"\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/{{courseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "{{courseId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Course statistics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Course statistics return 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Seeded course statistics are correct\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.courseId).to.equal(1);",
+                  "    pm.expect(body.courseCode).to.equal(\"CS401\");",
+                  "    pm.expect(body.enrolled).to.equal(2);",
+                  "    pm.expect(body.graded).to.equal(2);",
+                  "    pm.expect(body.average).to.be.closeTo(75, 0.000001);",
+                  "    pm.expect(body.highest).to.equal(80);",
+                  "    pm.expect(body.lowest).to.equal(70);",
+                  "    pm.expect(body.passed).to.equal(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/1/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "1",
+                "stats"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Student transcript",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Transcript returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Weighted average excludes ungraded courses\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.studentId).to.equal(1);",
+                  "    pm.expect(body.registrationNo).to.equal(\"CS-2022-001\");",
+                  "    pm.expect(body.weightedAverage).to.be.closeTo(72, 0.000001);",
+                  "    pm.expect(body.courses).to.be.an(\"array\").with.lengthOf(3);",
+                  "",
+                  "    const programming = body.courses.find(c => c.code === \"CS401\");",
+                  "    const mathematics = body.courses.find(c => c.code === \"MA201\");",
+                  "    const artificialIntelligence = body.courses.find(c => c.code === \"AI301\");",
+                  "",
+                  "    pm.expect(programming.mark).to.equal(80);",
+                  "    pm.expect(programming.creditHours).to.equal(3);",
+                  "    pm.expect(programming.passed).to.equal(true);",
+                  "",
+                  "    pm.expect(mathematics.mark).to.equal(60);",
+                  "    pm.expect(mathematics.creditHours).to.equal(2);",
+                  "    pm.expect(mathematics.passed).to.equal(true);",
+                  "",
+                  "    pm.expect(artificialIntelligence.mark).to.equal(null);",
+                  "    pm.expect(artificialIntelligence.passed).to.equal(false);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/1/transcript",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "1",
+                "transcript"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Own transcript as Student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student can read own transcript\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Own transcript has the correct average\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.studentId).to.equal(1);",
+                  "    pm.expect(body.registrationNo).to.equal(\"CS-2022-001\");",
+                  "    pm.expect(body.weightedAverage).to.be.closeTo(72, 0.000001);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/1/transcript",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "1",
+                "transcript"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Check health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"API and database are healthy\", function () {",
+                  "    pm.response.to.be.json;",
+                  "",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.equal(\"Healthy\");",
+                  "    pm.expect(body.checks.database).to.equal(\"Healthy\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Negative Tests",
+      "item": [
+        {
+          "name": "Login empty fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Empty fields return 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Validation errors identify both fields\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\"))",
+                  "        .to.include(\"application/problem+json\");",
+                  "",
+                  "    pm.expect(body.status).to.equal(400);",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(body.errors.username).to.be.an(\"array\").and.not.empty;",
+                  "    pm.expect(body.errors.password).to.be.an(\"array\").and.not.empty;",
+                  "    pm.expect(body).to.not.have.property(\"token\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"\",\n  \"password\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login wrong password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"Unauthorized Problem Details is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\"))",
+                  "        .to.include(\"application/problem+json\");",
+                  "    pm.expect(body.status).to.equal(401);",
+                  "    pm.expect(body.title).to.equal(\"Unauthorized\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(body).to.not.have.property(\"token\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"teacher1\",\n  \"password\": \"DELIBERATELY_INVALID_PASSWORD\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Students without token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"Unauthorized Problem Details is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\"))",
+                  "        .to.include(\"application/problem+json\");",
+                  "    pm.expect(body.status).to.equal(401);",
+                  "    pm.expect(body.title).to.equal(\"Unauthorized\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(body).to.not.have.property(\"token\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Students as student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student cannot list all students\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"Forbidden Problem Details is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(403);",
+                  "    pm.expect(body.title).to.equal(\"Forbidden\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Duplicate student registration",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Duplicate registration returns 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "pm.test(\"Duplicate student error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(409);",
+                  "    pm.expect(body.title).to.equal(\"Duplicate student\");",
+                  "    pm.expect(body.detail).to.equal(",
+                  "        \"A student with this registration number or email already exists.\"",
+                  "    );",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"registrationNo\": \"CS-2022-001\",\r\n  \"fullName\": \"Duplicate Registration Test\",\r\n  \"email\": \"duplicate-{{$guid}}@example.com\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Duplicate student email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Duplicate email returns 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "pm.test(\"Duplicate student error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(409);",
+                  "    pm.expect(body.title).to.equal(\"Duplicate student\");",
+                  "    pm.expect(body.detail).to.equal(",
+                  "        \"A student with this registration number or email already exists.\"",
+                  "    );",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"registrationNo\": \"EMAIL-{{$timestamp}}\",\r\n  \"fullName\": \"Duplicate Email Test\",\r\n  \"email\": \"ALI.RAZA@EXAMPLE.COM\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create student invalid fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Invalid student fields return 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Validation errors identify all invalid fields\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(400);",
+                  "",
+                  "    pm.expect(body.errors.registrationNo)",
+                  "        .to.be.an(\"array\").and.not.empty;",
+                  "",
+                  "    pm.expect(body.errors.fullName)",
+                  "        .to.be.an(\"array\").and.not.empty;",
+                  "",
+                  "    pm.expect(body.errors.email)",
+                  "        .to.be.an(\"array\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"registrationNo\": \"\",\r\n  \"fullName\": \"\",\r\n  \"email\": \"invalid-email\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Student reads another record",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student cannot read another record\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"Own-record restriction is explained\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(403);",
+                  "    pm.expect(body.title).to.equal(\"Forbidden\");",
+                  "    pm.expect(body.detail).to.equal(",
+                  "        \"You may only read your own student record.\"",
+                  "    );",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "2"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get missing student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Missing student returns 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"Student not found error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(404);",
+                  "    pm.expect(body.title).to.equal(\"Student not found\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "999999"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update missing student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Updating a missing student returns 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"Student not found error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(404);",
+                  "    pm.expect(body.title).to.equal(\"Student not found\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"registrationNo\": \"MISSING-UPDATE\",\r\n  \"fullName\": \"Missing Student\",\r\n  \"email\": \"missing.update@example.com\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "999999"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update student duplicate registration",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Duplicate registration during update returns 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "pm.test(\"Duplicate student error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(409);",
+                  "    pm.expect(body.title).to.equal(\"Duplicate student\");",
+                  "    pm.expect(body.detail).to.equal(",
+                  "        \"A student with this registration number or email already exists.\"",
+                  "    );",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"registrationNo\": \"CS-2022-002\",\r\n  \"fullName\": \"Should Not Be Saved\",\r\n  \"email\": \"ali.raza@example.com\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update student invalid fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Invalid update returns 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Validation errors identify invalid fields\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(400);",
+                  "",
+                  "    pm.expect(body.errors.registrationNo)",
+                  "        .to.be.an(\"array\").and.not.empty;",
+                  "",
+                  "    pm.expect(body.errors.fullName)",
+                  "        .to.be.an(\"array\").and.not.empty;",
+                  "",
+                  "    pm.expect(body.errors.email)",
+                  "        .to.be.an(\"array\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"registrationNo\": \"\",\r\n  \"fullName\": \"\",\r\n  \"email\": \"invalid-email\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete student as Student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student cannot delete a student\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"Forbidden error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(403);",
+                  "    pm.expect(body.title).to.equal(\"Forbidden\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "1"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete enrolled student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Deleting an enrolled student returns 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "pm.test(\"Student in use error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(409);",
+                  "    pm.expect(body.title).to.equal(\"Student in use\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get deleted student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Deleted student is not found\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"Student not found error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(404);",
+                  "    pm.expect(body.title).to.equal(\"Student not found\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/{{studentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "{{studentId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete missing student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Deleting a missing student returns 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"Student not found error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(404);",
+                  "    pm.expect(body.title).to.equal(\"Student not found\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "999999"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Duplicate course code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Duplicate course code returns 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "pm.test(\"Duplicate course error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(409);",
+                  "    pm.expect(body.title).to.equal(\"Duplicate course\");",
+                  "    pm.expect(body.detail).to.equal(",
+                  "        \"A course with this code already exists.\"",
+                  "    );",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"code\": \"cs401\",\r\n  \"title\": \"Duplicate Course Test\",\r\n  \"creditHours\": 3\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/courses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create course invalid credit hours",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Invalid credit hours return 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Credit hours validation error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(400);",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "",
+                  "    pm.expect(body.errors.creditHours)",
+                  "        .to.be.an(\"array\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"code\": \"BAD-CREDIT\",\r\n  \"title\": \"Invalid Credit Hours\",\r\n  \"creditHours\": 5\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/courses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create course as Student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student cannot create a course\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"Forbidden error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(403);",
+                  "    pm.expect(body.title).to.equal(\"Forbidden\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"code\": \"STU-TEST\",\r\n  \"title\": \"Forbidden Course\",\r\n  \"creditHours\": 3\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/courses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete course as Student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student cannot delete a course\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"Forbidden error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(403);",
+                  "    pm.expect(body.title).to.equal(\"Forbidden\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "1"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete enrolled course",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Deleting an enrolled course returns 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "pm.test(\"Course in use error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(409);",
+                  "    pm.expect(body.title).to.equal(\"Course in use\");",
+                  "    pm.expect(body.detail).to.equal(",
+                  "        \"Course cannot be deleted while enrollments exist.\"",
+                  "    );",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get deleted course",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Deleted course is not found\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"Course not found error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(404);",
+                  "    pm.expect(body.title).to.equal(\"Course not found\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/{{courseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "{{courseId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete missing course",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Deleting a missing course returns 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"Course not found error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(404);",
+                  "    pm.expect(body.title).to.equal(\"Course not found\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "999999"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Duplicate enrollment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Duplicate enrollment returns 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "pm.test(\"Duplicate enrollment error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(409);",
+                  "    pm.expect(body.title).to.equal(\"Duplicate enrollment\");",
+                  "    pm.expect(body.detail).to.equal(",
+                  "        \"Student is already enrolled in this course.\"",
+                  "    );",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"studentId\": 1\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/1/enrollments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "1",
+                "enrollments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark above 100",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Mark 101 returns 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Mark validation error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(400);",
+                  "    pm.expect(body.errors.mark).to.be.an(\"array\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"mark\": 101\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enrollments/{{enrollmentId}}/mark",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enrollments",
+                "{{enrollmentId}}",
+                "mark"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark below zero",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Mark -1 returns 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Mark validation error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(400);",
+                  "    pm.expect(body.errors.mark).to.be.an(\"array\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"mark\": -1\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enrollments/{{enrollmentId}}/mark",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enrollments",
+                "{{enrollmentId}}",
+                "mark"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Enroll missing student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Missing student returns 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"Missing parent error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(404);",
+                  "    pm.expect(body.title).to.equal(\"Student or course not found\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"studentId\": 999999\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/1/enrollments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "1",
+                "enrollments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Enroll in missing course",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Missing course returns 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"Missing parent error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(404);",
+                  "    pm.expect(body.title).to.equal(\"Student or course not found\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"studentId\": 1\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/999999/enrollments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "999999",
+                "enrollments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get deleted enrollment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Missing enrollment returns 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"Enrollment not found error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(404);",
+                  "    pm.expect(body.title).to.equal(\"Enrollment not found\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/enrollments/{{enrollmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enrollments",
+                "{{enrollmentId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete missing enrollment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Missing enrollment returns 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"Enrollment not found error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(404);",
+                  "    pm.expect(body.title).to.equal(\"Enrollment not found\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/enrollments/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "enrollments",
+                "999999"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Other transcript as Student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student cannot read another transcript\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"Transcript restriction is explained\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(403);",
+                  "    pm.expect(body.title).to.equal(\"Forbidden\");",
+                  "    pm.expect(body.detail).to.equal(",
+                  "        \"You may only read your own student transcript.\"",
+                  "    );",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/2/transcript",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "2",
+                "transcript"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Course statistics as Student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Student cannot read course statistics\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"Forbidden error is returned\", function () {",
+                  "    const body = pm.response.json();",
+                  "",
+                  "    pm.expect(body.status).to.equal(403);",
+                  "    pm.expect(body.title).to.equal(\"Forbidden\");",
+                  "    pm.expect(body.detail).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/1/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "1",
+                "stats"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "studentRegistrationNo",
+      "value": ""
+    },
+    {
+      "key": "studentFullName",
+      "value": ""
+    },
+    {
+      "key": "studentEmail",
+      "value": ""
+    },
+    {
+      "key": "studentId",
+      "value": ""
+    },
+    {
+      "key": "courseCode",
+      "value": ""
+    },
+    {
+      "key": "courseTitle",
+      "value": ""
+    },
+    {
+      "key": "courseCreditHours",
+      "value": ""
+    },
+    {
+      "key": "courseId",
+      "value": ""
+    },
+    {
+      "key": "enrollmentId",
+      "value": ""
+    },
+    {
+      "key": "enrollmentMark",
+      "value": ""
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  }
+}

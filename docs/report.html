@@ -1,0 +1,61 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Marks API - Assignment Report</title><link rel="stylesheet" href="assets/report.css"></head><body>
+<section class="page">
+<div class="kicker">Advanced Programming | Assignment 1</div>
+<h1>Student Marks<br>Management API</h1><div class="rule"></div>
+<p class="lead">An ASP.NET Core service with PostgreSQL persistence, JWT role rules, graded reports and repeatable API testing.</p>
+<div class="identity"><strong>Asif Baig</strong> &nbsp; | &nbsp; Registration: <strong>23F-0053</strong><br><span class="small">FAST NUCES, Chiniot-Faisalabad Campus &nbsp; | &nbsp; 10 November 2026</span></div>
+<p class="repo"><strong>Repository:</strong><br><a href="https://github.com/asifbaig7034/23F-0053_ASIF_Assignment1">https://github.com/asifbaig7034/23F-0053_ASIF_Assignment1</a></p>
+<h3>Architecture and responsibilities</h3>
+<div class="flow"><div>Endpoints<span>HTTP, DTO validation<br>and access policies</span></div><div>Services<span>Interfaces and<br>application operations</span></div><div>EF Core<span>Scoped DbContext<br>and migrations</span></div><div>PostgreSQL<span>Tables, indexes<br>and constraints</span></div></div>
+<p class="small">JWT authentication runs before protected endpoints. Teacher policies guard writes and administration. Student access to a record or transcript checks the linked <code>studentId</code> claim.</p>
+<div class="grid">
+<div class="card"><h3 style="margin-top:0">Runtime and tooling</h3><p>.NET 10 / ASP.NET Core<br>PostgreSQL 17.11<br>EF Core + Npgsql<br>Swagger UI and Postman</p></div>
+<div class="card"><h3 style="margin-top:0">Verified implementation results</h3><p><strong>118 / 118</strong> Postman tests passed<br><strong>107 / 107</strong> smoke checks passed<br>Smoke process exit code: <strong>0</strong><br>HTTPS redirect and CORS checks passed</p></div>
+</div>
+<h3>Production practices</h3><p class="small">Responses use camelCase DTOs and UTC timestamps. Validation problems and other errors use Problem Details. Read-only queries use AsNoTracking and projections; database calls use async methods and cancellation tokens. ILogger records operations without logging passwords or JWTs.</p>
+<div class="verification pending">Pending final fresh-database clean-clone verification. Run scripts/Finish-Assignment.ps1.</div>
+<div class="footer"><span>23F-0053 | Asif Baig | Marks API</span><span>1 / 5</span></div></section>
+<section class="page">
+<div class="kicker">02 | Data model</div><h2>Schema and integrity</h2>
+<img class="erd" src="erd.png" alt="ER diagram derived from the actual PostgreSQL schema">
+<p class="tiny muted">PK = primary key; FK = foreign key; UK = unique index. Cardinalities show parent/child participation. EF's __EFMigrationsHistory table is infrastructure and is omitted.</p>
+<div class="grid small">
+<div><h3>Database guarantees</h3><ul><li>Unique registration numbers, lowercase emails, course codes and usernames.</li><li>One enrollment per student/course pair.</li><li>Credit hours 1-4; mark NULL or integer 0-100.</li><li>All three foreign keys use ON DELETE RESTRICT.</li></ul></div>
+<div><h3>Accounts and deletion</h3><p>A Student-role user must have a student link. That link is nullable for other roles. The FK index is non-unique, so the schema permits multiple accounts linked to a student.</p><p>Deleting an enrolled student/course, or a student with a linked account, returns 409.</p></div>
+</div>
+<div class="callout small"><strong>Concurrency:</strong> inserts rely on PostgreSQL unique indexes. SQLSTATE 23505 is translated to 409 instead of a check-then-insert race. Existing migrations are the authoritative setup; schema.sql is the actual schema-only export.</div>
+<h3>Authentication and configuration</h3><p class="small">Passwords use ASP.NET Core PasswordHasher. Signed JWTs include expiry and role claims. Development credentials and the signing key come from user-secrets; environment variables support deployment. CORS permits configured origins. HTTP redirects to HTTPS; interactive Swagger is available in Development.</p>
+<div class="footer"><span>23F-0053 | Asif Baig | Marks API</span><span>2 / 5</span></div></section>
+<section class="page compact">
+<div class="kicker">03 | Calculations and request evidence</div><h2>Grades and input validation</h2>
+<div class="callout"><strong>Weighted average:</strong> sum(mark x credit hours) / sum(credit hours), using graded courses only.<br><strong>Seed example:</strong> (80 x 3 + 60 x 2) / (3 + 2) = <strong>72</strong>.</div>
+<p class="small">NULL means ungraded and is excluded from averages. Zero is a graded mark. Empty/ungraded averages are NULL. A course passes at the configured threshold (50). CS401 marks 80 and 70 give a course average of 75.</p>
+<div class="figure"><div class="caption">201 Created <span>| POST /api/students - successful DTO response</span></div><div class="crop s201"><img src="screenshots/postman-201.png"></div></div>
+<div class="figure"><div class="caption">400 Bad Request <span>| POST /api/auth/login - missing/invalid request body</span></div><div class="crop s400"><img src="screenshots/postman-400.png"></div></div>
+<p class="tiny muted">These screenshots were captured during implementation. The original complete screenshots are included in docs/screenshots; only the relevant response areas are shown here.</p>
+<div class="footer"><span>23F-0053 | Asif Baig | Marks API</span><span>3 / 5</span></div></section>
+<section class="page compact">
+<div class="kicker">04 | Permissions and conflicts</div><h2>Expected error behavior</h2>
+<p class="small">401 requires valid authentication. 403 means the caller lacks permission. 404 identifies missing resources. 409 reports a conflict with existing data. Error bodies consistently contain status, title and detail.</p>
+<div class="figure"><div class="caption">403 Forbidden <span>| Student attempts DELETE /api/students/1</span></div><div class="crop s403"><img src="screenshots/postman-403.png"></div></div>
+<div class="figure"><div class="caption">409 Conflict <span>| Teacher attempts to delete an enrolled student</span></div><div class="crop s409"><img src="screenshots/postman-409.png"></div></div>
+<h3>Issues resolved during implementation</h3><p class="small">PostgreSQL tools were located through their installation bin path. Database credentials were moved through user-secrets. Postman login scripts were corrected to keep Teacher and Student tokens separate; stale collection URLs, methods and ordering were corrected before the full passing run.</p>
+<div class="footer"><span>23F-0053 | Asif Baig | Marks API</span><span>4 / 5</span></div></section>
+<section class="page compact">
+<div class="kicker">05 | Verification and handover</div><h2>Repeatable verification</h2>
+<p class="small">The collection contains <strong>59 requests, 118 tests and 32 negative cases</strong>. Auth runs first; create requests save generated IDs; CRUD/enrollment cleanup precedes the final negative cases. The exported environment has blank token values.</p>
+<div class="figure"><div class="caption">Postman Collection Runner <span>| 118 passed, 0 failed, 0 errors</span></div><div class="crop runner"><img src="screenshots/postman-runner.png"></div></div>
+<h3>Startup smoke module</h3><p class="small">The opt-in --smoke-test mode starts the real HTTP server, uses PostgreSQL, checks successes/errors and report edge cases, removes SMOKE-prefixed fixtures and exits 0 only on success. Development credentials come from configuration. Both recorded runs passed 107 checks.</p>
+<div class="log">Recorded terminal result supplied during implementation:
+SMOKE SUMMARY: 107 passed, 0 failed
+Second exit code: 0
+
+The final helper inserts the actual fresh-run console screenshot here.</div>
+<div class="verification pending">Pending final fresh-database clean-clone verification. Run scripts/Finish-Assignment.ps1.</div>
+<p class="tiny">The final helper records the clean Git revision, separate verification database, seed/cleanup row counts, two smoke results and fresh Postman evidence in <strong>docs/verification-results.json</strong>. It leaves existing application data intact.</p>
+<div class="refs tiny"><strong>Primary references:</strong>
+<a href="https://learn.microsoft.com/aspnet/core/security/authentication/configure-jwt-bearer-authentication">ASP.NET Core JWT authentication</a>;
+<a href="https://learn.microsoft.com/ef/core/managing-schemas/migrations/">EF Core migrations</a>;
+<a href="https://www.postgresql.org/docs/17/ddl-constraints.html">PostgreSQL constraints</a>;
+<a href="https://learning.postman.com/docs/tests-and-scripts/running-collections/intro-to-collection-runs/">Postman Collection Runner</a>.</div>
+<div class="footer"><span>23F-0053 | Asif Baig | Marks API</span><span>5 / 5</span></div></section></body></html>
