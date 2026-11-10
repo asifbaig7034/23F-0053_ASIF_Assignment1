@@ -9,6 +9,7 @@ using MarksApi.Services.Courses;
 using MarksApi.Services.Enrollments;
 using MarksApi.Services.Reports;
 using MarksApi.Services.Students;
+using MarksApi.SmokeTests;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Routing;
@@ -18,7 +19,32 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 
-var builder = WebApplication.CreateBuilder(args);
+var smokeRequested = args.Any(arg =>
+    arg.Equals("--smoke-test", StringComparison.OrdinalIgnoreCase));
+
+var hostArgs = args.Where(arg =>
+    !arg.Equals("--smoke-test", StringComparison.OrdinalIgnoreCase))
+    .ToArray();
+
+var builder = WebApplication.CreateBuilder(hostArgs);
+
+smokeRequested |= builder.Configuration.GetValue<bool>("SMOKE_TEST");
+
+if (smokeRequested && !builder.Environment.IsDevelopment())
+{
+    Console.Error.WriteLine(
+        "Smoke tests require the Development environment.");
+    Environment.ExitCode = 1;
+    return;
+}
+
+if (smokeRequested && builder.Configuration.GetValue<bool>("SeedData"))
+{
+    Console.Error.WriteLine(
+        "Run seeding and smoke tests separately.");
+    Environment.ExitCode = 1;
+    return;
+}
 
 var connectionString =
     builder.Configuration.GetConnectionString("Database")
@@ -26,9 +52,7 @@ var connectionString =
         "ConnectionStrings:Database is missing.");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options
-        .UseNpgsql(connectionString)
-        .UseSnakeCaseNamingConvention());
+    options.UseNpgsql(connectionString).UseSnakeCaseNamingConvention());
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>(name: "database");
@@ -41,6 +65,12 @@ builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 
+builder.Services.AddOptions<SmokeTestOptions>()
+    .BindConfiguration("SmokeTest")
+    .ValidateDataAnnotations();
+
+builder.Services.AddScoped<SmokeTestRunner>();
+
 builder.Services.AddOptions<GradingOptions>()
     .BindConfiguration("Grading")
     .ValidateDataAnnotations()
@@ -51,8 +81,8 @@ builder.Services.AddOptions<JwtOptions>()
     .ValidateDataAnnotations()
     .Validate(
         settings =>
-            !string.IsNullOrWhiteSpace(settings.Key)
-            && Encoding.UTF8.GetByteCount(settings.Key) >= 32,
+            !string.IsNullOrWhiteSpace(settings.Key) &&
+            Encoding.UTF8.GetByteCount(settings.Key) >= 32,
         "Jwt:Key must contain at least 32 UTF-8 bytes.")
     .ValidateOnStart();
 
@@ -92,14 +122,10 @@ builder.Services
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("TeacherOnly", policy =>
-        policy
-            .RequireAuthenticatedUser()
-            .RequireRole("Teacher"));
+        policy.RequireAuthenticatedUser().RequireRole("Teacher"));
 
     options.AddPolicy("TeacherOrStudent", policy =>
-        policy
-            .RequireAuthenticatedUser()
-            .RequireRole("Teacher", "Student"));
+        policy.RequireAuthenticatedUser().RequireRole("Teacher", "Student"));
 });
 
 var allowedOrigins = builder.Configuration
@@ -110,8 +136,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("ConfiguredOrigins", policy =>
     {
-        policy
-            .WithOrigins(allowedOrigins)
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .WithExposedHeaders("Location");
@@ -153,10 +178,8 @@ var app = builder.Build();
 if (app.Configuration.GetValue<bool>("SeedData"))
 {
     if (!app.Environment.IsDevelopment())
-    {
         throw new InvalidOperationException(
             "Demo seeding requires the Development environment.");
-    }
 
     await using (var scope = app.Services.CreateAsyncScope())
     {
@@ -196,7 +219,6 @@ app.UseStatusCodePages(async statusContext =>
 });
 
 app.UseHttpsRedirection();
-
 app.UseRouting();
 app.UseCors("ConfiguredOrigins");
 app.UseAuthentication();
@@ -209,9 +231,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint(
-            "/swagger/v1/swagger.json",
-            "Marks API v1");
-
+            "/swagger/v1/swagger.json", "Marks API v1");
         options.DocumentTitle = "Marks API Documentation";
     });
 }
@@ -223,4 +243,10 @@ app.MapCourseEndpoints();
 app.MapEnrollmentEndpoints();
 app.MapReportEndpoints();
 
-app.Run();
+if (smokeRequested)
+{
+    Environment.ExitCode = await SmokeTestHost.RunAsync(app);
+    return;
+}
+
+await app.RunAsync();
